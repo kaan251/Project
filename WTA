@@ -1,0 +1,162 @@
+import random
+
+WEAPONS_DAMAGE_PROBS = [
+    (0.3, 0.6, 0.7, 0.99),
+    (0.4, 0.5, 0.75, 0.99),
+    (0.1, 0.2, 0.2, 0.8),
+    (0.05, 0.1, 0.01, 0.7),
+]
+
+probs = WEAPONS_DAMAGE_PROBS
+pop_size = 10
+max_iterations = 1000
+
+WEAPONS_INFO = [("Tank", 5), ("Aircraft", 3), ("Grenade", 20), ("Infantry", 5)]
+TARGETS_FACTORS = [729, 8054, 4547, 1120]
+elitism_rate = 0.05
+
+
+def EmptyChro(weap_info, targ):
+    chromosome = []
+
+    for weapon_type, count in weap_info:
+        selected_targets = [random.choice(targ + [0]) for _ in range(count)]
+        chromosome.append(selected_targets)
+
+    return chromosome
+
+
+def fitn(chrom, targ):
+    total = 0
+    for i in range(len(chrom)):
+        x = probs[i]
+        for j in range(len(chrom[i])):
+            tot = 1
+            if chrom[i][j] == 0:
+                tot *= 1
+            else:
+                y = targ.index(chrom[i][j])
+                tot *= probs[i][y] * targ[y]
+                total += tot
+    return total
+
+
+def Crossov(parent1, parent2):
+    crossover_prob = 0.8
+    offspring = []
+
+    # Her bir gen için çaprazlama işlemi gerçekleştirilir
+    for i in range(len(parent1)):
+        child = []
+        for j in range(len(parent1[i])):
+            r = random.uniform(0, 1)
+
+            # Çaprazlama olasılığına göre gen değişimi veya korunumu yapılır
+            if r < crossover_prob:
+                child.append(parent1[i][j])
+            else:
+                child.append(parent2[i][j])
+
+        offspring.append(child)
+
+    return offspring
+
+
+def Mutation(child):
+    mutation_prob = 0.4
+
+    # İki genin karşılıklı yer değiştirmesine dayalı mutasyon
+    for i in range(len(child)):
+        for j in range(len(child[i])-1):
+            r = random.uniform(0, 1)
+            if r < mutation_prob:
+                # İki genin yer değiştirmesi
+                child[i][j], child[i][j+1] = child[i][j+1], child[i][j]
+
+    return child
+
+
+def Cozum():
+    global max_iterations
+    population = []
+
+  
+    while len(population) < pop_size:
+        parent = EmptyChro(WEAPONS_INFO, TARGETS_FACTORS)
+        population.append((fitn(parent, TARGETS_FACTORS), parent))
+
+    
+    while max_iterations > 0:
+        
+        parent1 = rulet_t(population)
+        parent2 = rulet_t(population)
+
+        
+        child = Crossov(parent1, parent2)
+
+        
+        child = Mutation(child)
+
+        
+        fitness_value = fitn(child, TARGETS_FACTORS)
+        population.append((fitness_value, child))
+
+        
+        max_iterations -= 1
+
+    elitism = int(pop_size * elitism_rate)
+    elite_population = sorted(population, key=lambda x: x[0], reverse=True)[:elitism]
+    population = elite_population + population[elitism:]
+
+    return population
+
+
+def rulet_t(population):
+    top_uyg = sum(fitness for fitness, _ in population)
+    rand = random.uniform(0, top_uyg)
+    uyg_deg = 0
+    for fitness, birey in population:
+        uyg_deg += fitness
+        if uyg_deg > rand:
+            return birey
+
+
+def en_iyi(population):
+    return max(population, key=lambda x: x[0])
+
+
+def analyze_all_targets_allocation(chromosome, targets, weapons_info):
+    all_tar = {}
+
+    for target_index in targets:
+        targetss = {weapon_type: 0 for weapon_type, _ in weapons_info}
+
+        
+        for i, (weapon_type, count) in enumerate(weapons_info):
+            for j in range(count):
+                if chromosome[i][j] == target_index:
+                    targetss[weapon_type] += 1
+
+        all_tar[target_index] = targetss
+
+    return all_tar
+
+
+
+result_population = Cozum()
+
+
+best= en_iyi(result_population)
+
+
+targets_to_analyze = TARGETS_FACTORS
+
+
+all_allocations_result = analyze_all_targets_allocation(best[1], targets_to_analyze, WEAPONS_INFO)
+
+print("\nMAXIMUM HASAR:", best_individual[0], "\nKromozom:\n", best[1])
+
+for target_index, target_allocations in all_allocations_result.items():
+    print(f"\nTarget {target_index} için tahminler")
+    for weapon_type, count in target_allocations.items():
+        print(f"  {count} {weapon_type}s")
